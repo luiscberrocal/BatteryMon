@@ -1,285 +1,178 @@
-# BatteryMon - COSMIC Battery Monitor Applet
+# BatteryMon — COSMIC Battery Monitor Applet
 
-## Complete Release Package (Final - Bulletproof Installation)
+A small battery monitoring applet for the **COSMIC desktop** (Pop!_OS), written
+in Rust on top of [`libcosmic`](https://github.com/pop-os/libcosmic). Shows the
+current battery percentage in the panel and animates a `Low` / `Critical` label
+when the level drops below user-configurable thresholds.
 
-This package contains both the **pre-compiled binary** for immediate installation AND the **complete source code** for building from scratch.
+> **Credits**: This project is a fork / refinement of the original
+> [DkYSwe/BatteryMon](https://github.com/DkYSwe/BatteryMon/tree/main).
+> Refer to the upstream repository for the original implementation and history.
 
-## Latest Version: v1.5 - Bulletproof Installation
+---
 
-### ✅ **Installation Script Fixed:**
-- **Smart file detection** - Finds desktop file in multiple locations
-- **Graceful fallbacks** - Continues installation even if files are missing
-- **Detailed logging** - Shows what's found and what's installed
-- **Error handling** - Provides helpful debugging information
-- **Icon installation** - Robust icon copying with fallbacks
+## Requirements
 
-## Quick Installation (Pre-compiled)
+### Runtime
+- **Pop!_OS / COSMIC desktop** (the applet is loaded by `cosmic-panel`).
+- A Linux kernel that exposes batteries under `/sys/class/power_supply/*`
+  (every mainstream laptop kernel does — no extra service needed).
+- `~/.local/bin` on your `PATH` (the installer writes here; it does **not**
+  need root).
 
-### Easy Install
+### Build-from-source
+You only need these if you intend to rebuild the binary. If you just want to
+run the applet, skip ahead to [Install](#install).
+
+- **Rust toolchain** — stable, 1.75 or newer is recommended. Install via
+  [`rustup`](https://rustup.rs/):
+  ```bash
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+  rustup update stable
+  ```
+- **System build dependencies** (libcosmic links against several system
+  libraries). On Pop!_OS / Ubuntu:
+  ```bash
+  sudo apt install build-essential pkg-config libssl-dev \
+                   libxkbcommon-dev libwayland-dev libfontconfig1-dev
+  ```
+- **Git** — `cargo` fetches `libcosmic` directly from GitHub.
+- ~2 GB of free disk for the build artifacts in `target/`.
+
+---
+
+## Install
+
+There are two supported flows. Pick **one**.
+
+### Option A — Build from source (recommended)
+
 ```bash
-# Extract the archive
-unzip BatteryMon-complete-release.zip
-cd BatteryMon-complete-release
+# 1. Clone
+git clone https://github.com/<your-fork>/BatteryMon.git
+cd BatteryMon
 
-# Install to user directory (bulletproof script)
-chmod +x install.sh
-./install.sh
-
-# Restart COSMIC panel manually
-cosmic-panel &
-```
-
-### What the Install Script Does:
-1. **Finds all required files** in multiple possible locations
-2. **Installs binary** to `~/.local/bin/` (both names)
-3. **Installs desktop file** if found (in `data/` or root)
-4. **Installs icons** if found (in `data/icons/` or `icons/`)
-5. **Shows detailed progress** with ✓ and ⚠ indicators
-6. **Provides troubleshooting** tips if anything fails
-
-## Build from Source
-
-### Prerequisites
-- Rust and Cargo (latest stable)
-- COSMIC desktop environment
-- Basic build tools
-
-### Build Instructions
-```bash
-# Extract the archive
-unzip BatteryMon-complete-release.zip
-cd BatteryMon-complete-release
-
-# Build the applet (optimized)
+# 2. Build the optimized release binary
+#    Produces ./target/release/batterymon (~11 MB stripped)
 cargo build --release
 
-# Install the built binary (bulletproof script)
-chmod +x install.sh
+# 3. Install to ~/.local/bin and copy the desktop file + icons
 ./install.sh
 
-# Restart COSMIC panel manually
+# 4. Restart the COSMIC panel so it picks up the new applet
 cosmic-panel &
 ```
 
-## Features
-- **Real-time battery monitoring** with percentage display
-- **Visual alerts** for low and critical battery levels  
-- **Customizable thresholds** (5-95% for low and critical)
-- **Time-based text animation** when battery is low/critical
-- **Fixed-width display** - No layout shifts
-- **Restore defaults** - Easy reset to original settings
-- **Optimized performance** - No hanging when power disconnected
-- **Smart updates** - Menu updates every 5 seconds when open, 1 second when closed
-- **Clean, minimal interface** without unnecessary complexity
-- **User-directory installation** (no root access required)
-- **Small binary size** - Optimized for distribution (11MB)
-- **Working notifications** - Low/critical alerts work in all states
-- **Bulletproof installation** - Smart file detection and graceful fallbacks
+`install.sh` reads the binary from `./target/release/batterymon` (the output of
+step 2). If that file is missing it will fail with a clear error.
+
+### Option B — Use the pre-built binary checked into the repo
+
+The repo ships a pre-compiled `./batterymon` so you can install without a Rust
+toolchain. To use it, copy it into the path `install.sh` expects:
+
+```bash
+mkdir -p target/release
+cp batterymon target/release/batterymon
+./install.sh
+cosmic-panel &
+```
+
+> Note: the bundled binary is built against a specific glibc on Pop!_OS. If it
+> fails to start (e.g. `GLIBC_X.YY not found`), fall back to **Option A**.
+
+### What `install.sh` does
+
+1. Copies the binary to `~/.local/bin/batterymon` **and**
+   `~/.local/bin/cosmic-applet-batterymon` (the second name is what
+   `cosmic-panel` looks for).
+2. Copies `data/io.github.BatteryMon.desktop` to
+   `~/.local/share/applications/`.
+3. Copies icons from `data/icons/` into `~/.local/share/icons/`.
+4. Kills any running `cosmic-panel` so you can restart it cleanly.
+
+No `sudo` is required, and nothing is written outside your home directory.
+
+### Adding the applet to the panel
+
+After `cosmic-panel &`:
+
+1. Right-click the COSMIC panel → **Configure Panel** (or **Add Applet**).
+2. Find **BatteryMon** in the list and add it.
+
+---
+
+## Uninstall
+
+```bash
+./uninstall.sh
+cosmic-panel &
+```
+
+This removes the binaries from `~/.local/bin`, the desktop file, and the
+installed icons.
+
+---
 
 ## Usage
-1. Right-click the BatteryMon applet in your COSMIC panel
-2. Adjust low and critical battery thresholds using the sliders
-3. Settings are applied when you close the settings window
-4. Click "◉" to restore defaults to 20%/10%
-5. The applet will show battery status and animate when thresholds are reached
 
-## Notification Behavior
-- **Low Battery (≤20%)**: Alternates between "Batt:85%" and "Batt:Low" every 5 seconds
-- **Critical Battery (≤10%)**: Alternates between "Batt:8%" and "Batt:Critical" every 5 seconds
-- **Works with menu open/closed** - Notifications always visible
-- **Charging state** - Shows normal percentage, no animation
+- Click the applet to open the popup.
+- Use the sliders to set the **Low** and **Critical** thresholds
+  (5–95 %, step 5). Changes are committed when the popup closes.
+- Click **◉** to restore defaults (Low = 20 %, Critical = 10 %).
+- When the battery is **discharging** and below a threshold, the label
+  alternates between `Batt:NN%` and `Batt:Low` / `Batt:Critical` every 5 s.
 
-## Menu Performance
-- **Menu Open:** Updates every 5 seconds (prevents hanging)
-- **Menu Closed:** Updates every 1 second (real-time monitoring)
-- **Power Changes:** Status updates within 5 seconds in menu
-- **No Hanging:** Smooth operation even when unplugging cable
-- **Notifications Active:** Animation works regardless of menu state
+The label is fixed-width (12 chars) so the panel does not reflow as the text
+changes.
 
-## Installation Script Features
+---
 
-### ✅ Smart File Detection:
-```bash
-# Desktop file locations checked:
-- $PROJECT_DIR/data/io.github.BatteryMon.desktop
-- $PROJECT_DIR/io.github.BatteryMon.desktop
-- $PROJECT_DIR/data/io.github.BatteryMon.desktop
+## Project layout
 
-# Icon directories checked:
-- $PROJECT_DIR/data/icons
-- $PROJECT_DIR/icons
+```
+src/
+  main.rs       Entry point — hands off to cosmic::applet::run
+  app.rs        Applet state, popup, sliders, tick loop, animation
+  battery.rs    Pure sysfs reader (/sys/class/power_supply)
+data/
+  io.github.BatteryMon.desktop
+  icons/        hicolor icon tree
+install.sh / uninstall.sh
+Cargo.toml      libcosmic pinned to rev 9270358
 ```
 
-### ✅ Graceful Fallbacks:
-- **Missing desktop file** - Continues without desktop integration
-- **Missing icons** - Continues without icon installation
-- **Missing binary** - Shows error with directory listing
-- **Permission issues** - Provides helpful troubleshooting
+See `CLAUDE.md` for deeper architecture notes (tick cadence, two-stage
+slider commit, release profile rationale).
 
-### ✅ Detailed Output:
-```
-BatteryMon Installation Script
-==============================
-Project directory: /path/to/BatteryMon-complete-release
-✓ Binary found: /path/to/BatteryMon-complete-release/batterymon
-✓ Desktop file found: /path/to/BatteryMon-complete-release/data/io.github.BatteryMon.desktop
-✓ Icons directory found: /path/to/BatteryMon-complete-release/data/icons
-
-Installing binary to /home/user/.local/bin
-✓ Binary installed successfully
-Installing desktop file to /home/user/.local/share/applications
-✓ Desktop file installed successfully
-Installing icons to /home/user/.local/share/icons
-✓ Icons installed successfully
-```
-
-## Files Included
-
-### Pre-compiled Binary (11MB - Optimized)
-- `batterymon` - Ready-to-use binary (stripped & optimized)
-
-### Source Code
-- `src/` - Complete source code
-  - `main.rs` - Application entry point
-  - `app.rs` - Main application logic and UI (v1.4 with notifications fix)
-  - `battery.rs` - Battery information reading (streamlined)
-- `Cargo.toml` - Rust project configuration (with optimizations)
-
-### Installation Files
-- `install.sh` - **Bulletproof installation script** (v1.5)
-- `uninstall.sh` - Uninstallation script
-- `data/` - Desktop file and icons
-  - `io.github.BatteryMon.desktop` - Desktop file
-  - `icons/` - Icon files for all sizes
+---
 
 ## Troubleshooting
 
-### Installation Issues?
-The bulletproof install script provides detailed feedback:
-
-#### **If Desktop File Not Found:**
-```
-Warning: Desktop file not found in expected locations
-Expected locations:
-  /path/to/data/io.github.BatteryMon.desktop
-  /path/to/io.github.BatteryMon.desktop
-  /path/to/data/io.github.BatteryMon.desktop
-
-Continuing without desktop file installation...
-```
-
-#### **If Icons Not Found:**
-```
-Warning: Icons directory not found in expected locations
-Expected locations:
-  /path/to/data/icons
-  /path/to/icons
-
-Continuing without icon installation...
-```
-
-#### **Installation Summary:**
-```
-Installation summary:
-- Binary: /home/user/.local/bin/batterymon ✓
-- Desktop file: /home/user/.local/share/applications/io.github.BatteryMon.desktop ✓
-- Icons: /home/user/.local/share/icons ✓
-```
-
-### Applet Invisible After Installation?
+**Applet doesn't appear after restart**
 ```bash
-# Check if binary is in PATH
-which cosmic-applet-batterymon
-
-# Check if process is running
-pgrep cosmic-applet-batterymon
-
-# Add to PATH if needed
+which cosmic-applet-batterymon       # should print ~/.local/bin/...
+pgrep cosmic-applet-batterymon       # should return a PID once added
+```
+If `which` prints nothing, add `~/.local/bin` to your `PATH`:
+```bash
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
 source ~/.bashrc
-
-# Restart panel
-cosmic-panel &
 ```
 
-### Notifications Not Working?
-This version (v1.4) fixes the notification issue:
-- ✅ Low/critical alerts work regardless of menu state
-- ✅ Animation restored for battery warnings
-- ✅ Performance optimizations maintained
+**Build fails on `libcosmic` / `cosmic-text`**
+The `Cargo.toml` patches `cosmic-text` from `vendor/cosmic-text` to work around
+upstream API drift. Make sure you cloned the repo with that vendored directory
+intact (it's checked in, not a submodule).
 
-### Build Issues?
-```bash
-# Update Rust
-rustup update stable
+**Binary works but battery always shows 0 %**
+Check that `/sys/class/power_supply/` contains an entry whose `type` file
+reads `Battery`. Desktops and some VMs have no battery and the applet will
+show `N/A`.
 
-# Clean build
-cargo clean
-cargo build --release
+---
 
-# Check dependencies
-cargo check
-```
+## License
 
-## Uninstall
-```bash
-cd BatteryMon-complete-release
-chmod +x uninstall.sh
-./uninstall.sh
-
-# Restart COSMIC panel manually
-cosmic-panel &
-```
-
-## Requirements
-- COSMIC desktop environment
-- User permissions for ~/.local/bin and ~/.local/share/applications
-- Rust and Cargo (for building from source)
-
-## Technical Details
-
-### Performance Optimizations
-- **Adaptive tick rate** - 1s when menu closed, 5s when menu open
-- **Conditional battery reads** - Reduced file system access
-- **Smart animation** - Works in all menu states
-- **Error handling** - Graceful power state transitions
-
-### Binary Optimizations
-- **Debug symbols stripped** - 60% size reduction (28MB → 11MB)
-- **Link-time optimization** - Better code generation
-- **Size optimization** - Focused on minimal binary size
-- **Minimal dependencies** - Only required tokio features
-
-### Installation Script Robustness
-- **Multi-location file detection** - Finds files in different directory structures
-- **Graceful degradation** - Continues installation even with missing components
-- **Detailed logging** - Clear feedback on what's found and installed
-- **Error recovery** - Helpful troubleshooting information
-- **Cross-platform compatibility** - Works with different system configurations
-
-### v1.5 Changes
-- **Bulletproof install script** - Smart file detection and fallbacks
-- **Enhanced error handling** - Better debugging information
-- **Graceful installation** - Works even if some files are missing
-- **Detailed progress reporting** - Clear success/failure indicators
-
-## Version History
-- **v1.5** - Bulletproof installation script (final release)
-- **v1.4** - Fixed low/critical notifications
-- **v1.3** - Complete release with source + binary, 60% size reduction
-- **v1.2** - Fixed menu hanging, adaptive updates
-- **v1.1** - Fixed slider freezing, COSMIC UI improvements
-- **v1.0** - Initial release
-
-## Support
-This package includes everything needed to use or modify BatteryMon:
-- ✅ Ready-to-use binary for immediate installation (11MB optimized)
-- ✅ Complete source code for customization
-- ✅ All dependencies and build files
-- ✅ Bulletproof installation script with smart file detection
-- ✅ Installation and uninstallation scripts
-- ✅ Icons and desktop integration
-- ✅ Working notifications in all states
-- ✅ Detailed troubleshooting information
-
-Enjoy your fully functional battery monitoring experience with bulletproof installation! 🎉
+Dual-licensed under MIT or Apache-2.0, matching the upstream
+[DkYSwe/BatteryMon](https://github.com/DkYSwe/BatteryMon/tree/main) project.
