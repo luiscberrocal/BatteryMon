@@ -15,7 +15,9 @@ cargo build --release
 # Quick type/dependency check without a full build
 cargo check
 
-# Install to ~/.local/bin (uses ./batterymon — the pre-compiled binary at the repo root, NOT target/release/)
+# Install to ~/.local/bin. Picks target/release/batterymon if present
+# (i.e. you just ran `cargo build --release`), otherwise falls back to
+# the bundled ./batterymon at the repo root.
 ./install.sh
 
 # Uninstall
@@ -27,7 +29,7 @@ cosmic-panel &
 
 There are no tests or lint configs in this repo. `cargo fmt` / `cargo clippy` work via the standard Rust toolchain but no project-specific config exists.
 
-Important: `install.sh` copies `$PROJECT_DIR/batterymon` (the pre-built binary checked into the release package), not `target/release/batterymon`. If you rebuild from source and want `install.sh` to pick it up, copy/replace the root `batterymon` first.
+`install.sh` prefers `$PROJECT_DIR/target/release/batterymon` if it exists and otherwise falls back to the bundled `$PROJECT_DIR/batterymon`. A fresh `cargo build --release` will therefore be picked up automatically — no need to copy it over the root binary.
 
 ## Architecture
 

@@ -4,7 +4,23 @@
 set -e
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BINARY_PATH="$PROJECT_DIR/target/release/batterymon"  # Built from source via `cargo build --release`
+
+# Prefer a freshly-built binary at target/release/batterymon; otherwise fall
+# back to the pre-built ./batterymon checked into the repo. This lets users
+# install either by building from source (`cargo build --release`) or by using
+# the bundled binary, without any extra copy step.
+BUILT_BINARY="$PROJECT_DIR/target/release/batterymon"
+BUNDLED_BINARY="$PROJECT_DIR/batterymon"
+if [ -f "$BUILT_BINARY" ]; then
+    BINARY_PATH="$BUILT_BINARY"
+    BINARY_SOURCE="freshly built (target/release/batterymon)"
+elif [ -f "$BUNDLED_BINARY" ]; then
+    BINARY_PATH="$BUNDLED_BINARY"
+    BINARY_SOURCE="bundled pre-built (./batterymon)"
+else
+    BINARY_PATH="$BUILT_BINARY"  # used only for the error message below
+    BINARY_SOURCE=""
+fi
 
 # Look for desktop file in multiple possible locations
 DESKTOP_FILE_LOCATIONS=(
@@ -42,13 +58,18 @@ echo "Project directory: $PROJECT_DIR"
 
 # Check if binary exists
 if [ ! -f "$BINARY_PATH" ]; then
-    echo "Error: Binary not found at $BINARY_PATH"
-    echo "Build it first with:"
+    echo "Error: No batterymon binary found."
+    echo "Looked in:"
+    echo "  $BUILT_BINARY    (built from source)"
+    echo "  $BUNDLED_BINARY  (pre-built, shipped with the repo)"
+    echo ""
+    echo "Either build it with:"
     echo "  cargo build --release"
+    echo "or restore the bundled ./batterymon from the repo."
     exit 1
 fi
 
-echo "✓ Binary found: $BINARY_PATH"
+echo "✓ Binary found: $BINARY_PATH ($BINARY_SOURCE)"
 
 # Check if desktop file exists
 if [ -z "$DESKTOP_FILE" ]; then

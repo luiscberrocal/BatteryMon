@@ -43,62 +43,123 @@ run the applet, skip ahead to [Install](#install).
 
 ## Install
 
-There are two supported flows. Pick **one**.
-
-### Option A — Build from source (recommended)
+### Quickstart (TL;DR)
 
 ```bash
-# 1. Clone
 git clone https://github.com/<your-fork>/BatteryMon.git
 cd BatteryMon
-
-# 2. Build the optimized release binary
-#    Produces ./target/release/batterymon (~11 MB stripped)
-cargo build --release
-
-# 3. Install to ~/.local/bin and copy the desktop file + icons
-./install.sh
-
-# 4. Restart the COSMIC panel so it picks up the new applet
-cosmic-panel &
+./install.sh        # uses the bundled ./batterymon if present
+cosmic-panel &      # re-launch the panel that install.sh just stopped
 ```
 
-`install.sh` reads the binary from `./target/release/batterymon` (the output of
-step 2). If that file is missing it will fail with a clear error.
+That's it for most users. The repo ships a pre-built `./batterymon`, so you do
+**not** need a Rust toolchain unless you want to rebuild. Once `cosmic-panel`
+is back, right-click the panel → **Configure Panel** → **Add Applet** →
+**BatteryMon**.
 
-### Option B — Use the pre-built binary checked into the repo
+If the bundled binary fails to start (e.g. `GLIBC_X.YY not found`), build from
+source — see [Option B](#option-b--build-from-source) below.
 
-The repo ships a pre-compiled `./batterymon` so you can install without a Rust
-toolchain. To use it, copy it into the path `install.sh` expects:
+### Binary lookup order
+
+`install.sh` picks the first binary it finds:
+
+1. `./target/release/batterymon` — produced by `cargo build --release`. Always
+   preferred if present, so a fresh build automatically overrides the bundled
+   binary.
+2. `./batterymon` — the pre-built fallback checked into the repo.
+
+If neither exists the installer aborts with a clear error.
+
+### Option A — Use the bundled pre-built binary
 
 ```bash
-mkdir -p target/release
-cp batterymon target/release/batterymon
+git clone https://github.com/<your-fork>/BatteryMon.git
+cd BatteryMon
 ./install.sh
 cosmic-panel &
 ```
 
-> Note: the bundled binary is built against a specific glibc on Pop!_OS. If it
-> fails to start (e.g. `GLIBC_X.YY not found`), fall back to **Option A**.
+No build, no toolchain, no `sudo`. The bundled binary is compiled against the
+glibc on Pop!_OS — on other distros or older releases it may not start, in
+which case use Option B.
+
+### Option B — Build from source
+
+```bash
+git clone https://github.com/<your-fork>/BatteryMon.git
+cd BatteryMon
+cargo build --release   # produces ./target/release/batterymon (~11 MB stripped)
+./install.sh            # picks up target/release/batterymon automatically
+cosmic-panel &
+```
+
+The first `cargo build --release` after a clean checkout compiles `libcosmic`
+and takes a few minutes. Subsequent builds finish in seconds.
 
 ### What `install.sh` does
 
-1. Copies the binary to `~/.local/bin/batterymon` **and**
-   `~/.local/bin/cosmic-applet-batterymon` (the second name is what
-   `cosmic-panel` looks for).
-2. Copies `data/io.github.BatteryMon.desktop` to
-   `~/.local/share/applications/`.
-3. Copies icons from `data/icons/` into `~/.local/share/icons/`.
-4. Kills any running `cosmic-panel` so you can restart it cleanly.
+1. Picks a binary (see [Binary lookup order](#binary-lookup-order) above).
+2. Copies it to **both** `~/.local/bin/batterymon` and
+   `~/.local/bin/cosmic-applet-batterymon` — the second name is what
+   `cosmic-panel` looks up when loading the applet.
+3. Copies `data/io.github.BatteryMon.desktop` to
+   `~/.local/share/applications/` and refreshes the desktop database.
+4. Copies icons from `data/icons/` into `~/.local/share/icons/`.
+5. Kills the running `cosmic-panel` so it can be restarted cleanly without
+   duplicate panels (it does **not** restart it for you — see below).
 
 No `sudo` is required, and nothing is written outside your home directory.
 
+### Restarting the COSMIC panel
+
+`install.sh` stops `cosmic-panel` but does not relaunch it — your panel will
+disappear until you bring it back. Pick one:
+
+```bash
+# Re-launch from any terminal. The `&` detaches it from the shell so it keeps
+# running after you close the terminal.
+cosmic-panel &
+
+# Or use `setsid` / `nohup` if you want to be sure it survives shell exit:
+setsid cosmic-panel >/dev/null 2>&1 &
+```
+
+Alternatively, **log out and log back in** — the COSMIC session will start
+`cosmic-panel` for you and pick up the new applet.
+
 ### Adding the applet to the panel
 
-After `cosmic-panel &`:
+After `cosmic-panel` is running again:
 
 1. Right-click the COSMIC panel → **Configure Panel** (or **Add Applet**).
 2. Find **BatteryMon** in the list and add it.
+
+### Verify the install
+
+A successful install should pass all of these checks:
+
+```bash
+# Both names should resolve to ~/.local/bin/
+which batterymon
+which cosmic-applet-batterymon
+
+# Desktop entry should exist
+ls ~/.local/share/applications/io.github.BatteryMon.desktop
+
+# Once you've added the applet to the panel, this should print a PID
+pgrep cosmic-applet-batterymon
+```
+
+If `which` prints nothing, `~/.local/bin` is not on your `PATH`. Add it:
+
+```bash
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+If `pgrep` returns nothing after you've added the applet, see
+[Troubleshooting](#troubleshooting).
 
 ---
 
@@ -106,11 +167,12 @@ After `cosmic-panel &`:
 
 ```bash
 ./uninstall.sh
-cosmic-panel &
+cosmic-panel &        # or log out and back in
 ```
 
-This removes the binaries from `~/.local/bin`, the desktop file, and the
-installed icons.
+This kills the running applet, removes both binaries from `~/.local/bin`, the
+desktop file, and the installed icons, then stops `cosmic-panel` so you can
+restart it the same way as during install.
 
 ---
 
@@ -196,15 +258,11 @@ slider commit, release profile rationale).
 ## Troubleshooting
 
 **Applet doesn't appear after restart**
-```bash
-which cosmic-applet-batterymon       # should print ~/.local/bin/...
-pgrep cosmic-applet-batterymon       # should return a PID once added
-```
-If `which` prints nothing, add `~/.local/bin` to your `PATH`:
-```bash
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
-```
+
+Run the checks under [Verify the install](#verify-the-install) first. If
+`which cosmic-applet-batterymon` resolves but `pgrep` returns nothing after
+adding the applet via Configure Panel, try logging out and back in — some
+COSMIC builds only rescan installed applets at session start.
 
 **Build fails on `libcosmic` / `cosmic-text`**
 The `Cargo.toml` patches `cosmic-text` from `vendor/cosmic-text` to work around
