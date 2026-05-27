@@ -128,6 +128,52 @@ changes.
 
 ---
 
+## Running the tests
+
+The crate ships with a unit test suite covering the sysfs parser and the
+pure label/animation/tick helpers extracted from the applet. The tests are
+fully self-contained — they do **not** read your real `/sys/class/power_supply`,
+launch a window, or require COSMIC to be running. They write a throwaway
+sysfs tree under `$TMPDIR` and exercise the helpers directly.
+
+```bash
+# Run the full suite
+cargo test
+
+# Run just the battery (sysfs) tests
+cargo test --lib battery::
+
+# Run just the app (label/animation/tick) tests
+cargo test --lib app::
+
+# Verbose output (show println!/stdout from tests)
+cargo test -- --nocapture
+```
+
+The first `cargo test` after a clean checkout compiles `libcosmic` and is
+slow (a few minutes). Subsequent runs reuse the build cache and finish in
+seconds. The test binary itself runs in well under a second.
+
+What's covered:
+
+- `src/battery.rs` — `BatteryState::parse` for every known status string,
+  whitespace handling, and unknown values; `BatteryInfo::read_from` against
+  a synthetic sysfs tree (battery present, no battery, mixed AC + battery
+  entries, missing/unparseable `capacity`, missing `status`, non-existent
+  root path).
+- `src/app.rs` — `format_battery_label` for charging, full, discharging
+  above/at/below each threshold, `show_text` true/false, missing info, and
+  fixed-width padding; `is_animation_active` for every state/threshold
+  combination; `should_switch_text` boundary conditions around the 5-second
+  animation interval; `tick_should_update_battery` for both the
+  popup-closed (every tick) and popup-open (every 5th tick) cadences.
+
+The libcosmic-bound surface (`view`, `view_window`, popup wiring, the
+tokio tick scheduler) is intentionally not unit-tested — those paths are
+exercised by running the applet itself (`cargo build --release` + `install.sh`).
+
+---
+
 ## Project layout
 
 ```
