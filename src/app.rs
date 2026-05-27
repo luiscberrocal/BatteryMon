@@ -21,6 +21,7 @@ pub struct App {
     shutdown_threshold: f32,
     show_text: bool,
     last_text_switch_time: Option<std::time::Instant>, // Track last text switch time
+    tick_counter: u32,
     // Temporary settings (only apply when window closes)
     temp_hibernate_threshold: Option<f32>,
     temp_shutdown_threshold: Option<f32>,
@@ -61,6 +62,7 @@ impl cosmic::Application for App {
             shutdown_threshold: 10.0,
             show_text: true,
             last_text_switch_time: None,
+            tick_counter: 0,
             // Temporary settings (only apply when window closes)
             temp_hibernate_threshold: None,
             temp_shutdown_threshold: None,
@@ -84,17 +86,10 @@ impl cosmic::Application for App {
                 // Update battery less frequently when menu is open to prevent slowdown
                 let should_update_battery = if self.popup.is_some() {
                     // Only update every 5 ticks (5 seconds) when menu is open
-                    static mut TICK_COUNTER: u32 = 0;
-                    unsafe {
-                        TICK_COUNTER += 1;
-                        if TICK_COUNTER >= 5 {
-                            TICK_COUNTER = 0;
-                            true
-                        } else {
-                            false
-                        }
-                    }
+                    self.tick_counter = (self.tick_counter + 1) % 5;
+                    self.tick_counter == 0
                 } else {
+                    self.tick_counter = 0;
                     true // Update every tick when menu is closed
                 };
                 

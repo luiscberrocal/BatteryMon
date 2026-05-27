@@ -10,6 +10,12 @@ license = "MIT OR Apache-2.0"
 libcosmic = { git = "https://github.com/pop-os/libcosmic", rev = "9270358", features = ["applet"] }
 tokio = { version = "1", features = ["rt", "time"] }  # Only needed features
 
+# libcosmic@9270358 (Jan 22 2026) depends on cosmic-text from git without a rev pin.
+# cosmic-text main has since drifted with breaking API changes, so pin it to a commit
+# from just before the libcosmic revision was cut.
+[patch."https://github.com/pop-os/cosmic-text.git"]
+cosmic-text = { path = "vendor/cosmic-text" }
+
 [profile.release]
 strip = true  # Strip debug symbols
 lto = true    # Link-time optimization

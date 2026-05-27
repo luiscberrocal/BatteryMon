@@ -4,13 +4,12 @@
 set -e
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BINARY_PATH="$PROJECT_DIR/batterymon"  # Pre-compiled binary in current directory
+BINARY_PATH="$PROJECT_DIR/target/release/batterymon"  # Built from source via `cargo build --release`
 
 # Look for desktop file in multiple possible locations
 DESKTOP_FILE_LOCATIONS=(
     "$PROJECT_DIR/data/io.github.BatteryMon.desktop"
     "$PROJECT_DIR/io.github.BatteryMon.desktop"
-    "$PROJECT_DIR/data/io.github.BatteryMon.desktop"
 )
 
 # Find the desktop file
@@ -44,10 +43,8 @@ echo "Project directory: $PROJECT_DIR"
 # Check if binary exists
 if [ ! -f "$BINARY_PATH" ]; then
     echo "Error: Binary not found at $BINARY_PATH"
-    echo "The pre-compiled binary should be in the same directory as this script"
-    echo ""
-    echo "Current directory contents:"
-    ls -la "$PROJECT_DIR"
+    echo "Build it first with:"
+    echo "  cargo build --release"
     exit 1
 fi
 
