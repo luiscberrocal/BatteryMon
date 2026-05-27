@@ -1,0 +1,18 @@
+[package]
+name = "batterymon"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <your.email@example.com>"]
+description = "Battery monitoring panel applet for COSMIC desktop"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+libcosmic = { git = "https://github.com/pop-os/libcosmic", rev = "9270358", features = ["applet"] }
+tokio = { version = "1", features = ["rt", "time"] }  # Only needed features
+
+[profile.release]
+strip = true  # Strip debug symbols
+lto = true    # Link-time optimization
+codegen-units = 1  # Maximum optimization
+panic = "abort"  # Smaller binary
+opt-level = "z"  # Size optimization

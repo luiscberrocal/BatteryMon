@@ -1,0 +1,213 @@
+use cosmic::app::{Core, Task};
+use cosmic::widget::{column, container, row, text, text_input};
+use cosmic::{Element, Application};
+use cosmic::iced::platform_specific::shell::wayland::commands::popup::{destroy_popup, get_popup};
+use std::sync::{Arc, RwLock};
+use std::time::Duration;
+
+use crate::battery::{BatteryInfo, BatteryState};
+
+pub struct App {
+    core: Core,
+    battery_info: Arc<RwLock<Option<BatteryInfo>>>,
+    show_popup: bool,
+    hibernate_threshold: String,
+    shutdown_threshold: String,
+    hibernate_action: String,
+    shutdown_action: String,
+    popup_id: Option<cosmic::iced::window::Id>,
+}
+
+#[derive(Debug, Clone)]
+pub enum Message {
+    Tick,
+    TogglePopup,
+    UpdateHibernateThreshold(String),
+    UpdateShutdownThreshold(String),
+    UpdateHibernateAction(String),
+    UpdateShutdownAction(String),
+    Hibernate,
+    Shutdown,
+}
+
+impl Application for App {
+    const APP_ID: &'static str = "io.github.BatteryMon";
+    type Executor = cosmic::executor::Default;
+    type Flags = ();
+    type Message = Message;
+
+    fn core(&self) -> &Core {
+        &self.core
+    }
+
+    fn core_mut(&mut self) -> &mut Core {
+        &mut self.core
+    }
+
+    fn init(core: Core, _flags: ()) -> (Self, Task<Self::Message>) {
+        let battery_info = Arc::new(RwLock::new(BatteryInfo::read()));
+        
+        let app = App {
+            core,
+            battery_info,
+            show_popup: false,
+            hibernate_threshold: "10".to_string(),
+            shutdown_threshold: "5".to_string(),
+            hibernate_action: "time".to_string(),
+            shutdown_action: "percent".to_string(),
+            popup_id: None,
+        };
+        
+        // Request initial update
+        (app, Task::perform(async { Message::Tick }, |_| cosmic::Action::App(Message::Tick)))
+    }
+
+    fn update(&mut self, message: Self::Message) -> Task<Self::Message> {
+        match message {
+            Message::Tick => {
+                // Update battery info
+                if let Ok(mut info) = self.battery_info.write() {
+                    *info = BatteryInfo::read();
+                }
+                // Schedule next update after 5 seconds
+                Task::perform(
+                    async {
+                        tokio::time::sleep(Duration::from_secs(5)).await;
+                    },
+                    |_| cosmic::Action::App(Message::Tick),
+                )
+            }
+            Message::TogglePopup => {
+                if self.show_popup {
+                    self.show_popup = false;
+                    if let Some(popup_id) = self.popup_id {
+                        self.popup_id = None;
+                        return destroy_popup(popup_id);
+                    }
+                } else {
+                    self.show_popup = true;
+                    let new_id = cosmic::iced::window::Id::unique();
+                    self.popup_id = Some(new_id);
+                    
+                    let popup_settings = self.core.applet.get_popup_settings(
+                        self.core.main_window_id().unwrap(),
+                        new_id,
+                        None,
+                    );
+                    
+                    return get_popup(popup_settings);
+                }
+                Task::none()
+            }
+            Message::UpdateHibernateThreshold(value) => {
+                self.hibernate_threshold = value;
+                Task::none()
+            }
+            Message::UpdateShutdownThreshold(value) => {
+                self.shutdown_threshold = value;
+                Task::none()
+            }
+            Message::UpdateHibernateAction(value) => {
+                self.hibernate_action = value;
+                Task::none()
+            }
+            Message::UpdateShutdownAction(value) => {
+                self.shutdown_action = value;
+                Task::none()
+            }
+            Message::Hibernate => {
+                Task::perform(async {
+                    let _ = std::process::Command::new("systemctl")
+                        .args(&["hibernate"])
+                        .output();
+                }, |_| cosmic::Action::App(Message::Tick))
+            }
+            Message::Shutdown => {
+                Task::perform(async {
+                    let _ = std::process::Command::new("systemctl")
+                        .args(&["poweroff"])
+                        .output();
+                }, |_| cosmic::Action::App(Message::Tick))
+            }
+        }
+    }
+
+    fn view(&self) -> Element<'_, Self::Message> {
+        let info = self.battery_info.read()
+            .ok()
+            .and_then(|guard| (*guard).clone());
+        
+    fn view(&self) -> Element<'_, Self::Message> {
+        let info = self.battery_info.read()
+            .ok()
+            .and_then(|guard| (*guard).clone());
+        
+        let icon_name = if let Some(ref info) = info { 
+            match info.state {
+                BatteryState::Charging => "cosmic-applet-battery-level-80-charging-symbolic",
+                BatteryState::Full => "cosmic-applet-battery-level-100-symbolic",
+                BatteryState::Discharging => "cosmic-applet-battery-level-80-symbolic",
+                _ => "cosmic-applet-battery-level-0-symbolic",
+            }
+        } else {
+            "cosmic-applet-battery-level-0-symbolic"
+        };
+        
+        // Use the official icon_button for proper alignment
+        let applet_button = self.core.applet.icon_button(icon_name)
+            .on_press(Message::TogglePopup);
+        
+        self.core.applet.autosize_window(applet_button).into()
+    }
+    
+    fn view_window(&self, _id: cosmic::iced::window::Id) -> Element<'_, Self::Message> {
+        let info = self.battery_info.read()
+            .ok()
+            .and_then(|guard| (*guard).clone());
+        
+        // Popup content
+        let battery_status = if let Some(ref info) = info {
+            column()
+                .push(text(format!("Battery: {:.0}%", info.percentage)).size(16))
+                .push(text(format!("Status: {:?}", info.state)).size(14))
+                .push(text(format!("Time Remaining: {:?}", info.time_remaining)).size(14))
+                .push(text(format!("Power Usage: {:?}", info.power_usage)).size(14))
+        } else {
+            column().push(text("Battery information unavailable").size(14))
+        };
+        
+        let settings = column()
+            .push(text("Low Battery Actions").size(16))
+            .push(
+                row()
+                    .push(text("Hibernate at:").size(14))
+                    .push(text_input(&self.hibernate_threshold, "hibernate_threshold")
+                        .on_input(Message::UpdateHibernateThreshold))
+                    .push(text(if self.hibernate_action == "time" { "minutes" } else { "%" }).size(14))
+            )
+            .push(
+                row()
+                    .push(text("Shutdown at:").size(14))
+                    .push(text_input(&self.shutdown_threshold, "shutdown_threshold")
+                        .on_input(Message::UpdateShutdownThreshold))
+                    .push(text(if self.shutdown_action == "time" { "minutes" } else { "%" }).size(14))
+            )
+            .spacing(10);
+        
+        let actions = column()
+            .push(cosmic::applet::menu_button("Hibernate Now").on_press(Message::Hibernate))
+            .push(cosmic::applet::menu_button("Shutdown Now").on_press(Message::Shutdown))
+            .spacing(10);
+        
+        self.core.applet.popup_container(
+            column()
+                .push(battery_status)
+                .push(cosmic::widget::divider::horizontal::default())
+                .push(settings)
+                .push(cosmic::widget::divider::horizontal::default())
+                .push(actions)
+                .spacing(20)
+                .padding(20)
+        ).into()
+    }
+}

@@ -1,0 +1,13 @@
+[Desktop Entry]
+Name=BatteryMon
+Comment=Battery monitoring panel applet
+Type=Application
+Exec=cosmic-applet-batterymon
+Terminal=false
+StartupNotify=true
+NotShowIn=COSMIC
+Categories=COSMIC
+Keywords=COSMIC;Iced;Battery;Monitor;
+Icon=battery-low
+X-CosmicApplet=true
+X-CosmicHoverPopup=Auto
